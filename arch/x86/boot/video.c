@@ -25,7 +25,7 @@ static void store_cursor_position(void)
 
 	initregs(&ireg);
 	ireg.ah = 0x03;
-	intcall(0x10, &ireg, &oreg);
+	intcall(0x10, &ireg, &oreg);	//0X10bios中断，返回结果在DL和DH寄存器中
 
 	boot_params.screen_info.orig_x = oreg.dl;
 	boot_params.screen_info.orig_y = oreg.dh;
@@ -68,8 +68,8 @@ static void store_mode_params(void)
 	if (graphic_mode)
 		return;
 
-	store_cursor_position();
-	store_video_mode();
+	store_cursor_position();	//保存现在指针的位置，即x,y的位置
+	store_video_mode();		//保存显示模式boot_params.screen_info.orig_video_mode
 
 	if (boot_params.screen_info.orig_video_mode == 0x07) {
 		/* MDA, HGC, or VGA in monochrome mode */
@@ -79,6 +79,7 @@ static void store_mode_params(void)
 		video_segment = 0xb800;
 	}
 
+	//保存字体大小信息。将fs值设为0，boot.h中设置了很多相关的寄存器操作。
 	set_fs(0);
 	font_size = rdfs16(0x485); /* Font size, BIOS area */
 	boot_params.screen_info.orig_video_points = font_size;
@@ -316,11 +317,14 @@ static void restore_screen(void)
 
 void set_video(void)
 {
-	u16 mode = boot_params.hdr.vid_mode;
+	//该字段是copy_boot_params函数拷贝进去的，而实际该字段是引导程序内写的字段，
+	u16 mode = boot_params.hdr.vid_mode;	
 
-	RESET_HEAP();
+	//#define RESET_HEAP() ((void *)( HEAP = _end ))  定义在boot.h中，虽然前面初始化过了，但是这里调用了堆的接口
+	//我也没明白用意
+	RESET_HEAP();	
 
-	store_mode_params();
+	store_mode_params();	//保存显示相关的一些参数,即x,y值和一些别的
 	save_screen();
 	probe_cards(0);
 

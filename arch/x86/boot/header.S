@@ -296,7 +296,7 @@ _start:
 		# Explicitly enter this as bytes, or the assembler
 		# tries to generate a 3-byte jump here, which causes
 		# everything else to push off to the wrong offset.
-		.byte	0xeb		# short (2-byte) jump
+		.byte	0xeb		# short (2-byte) jump //jump的二进制是0xeb，所以这是一条jump语句，跳转到start_of_setup - 1f这个相对地址。
 		.byte	start_of_setup-1f
 1:
 
@@ -582,7 +582,8 @@ kernel_info_offset:	.long 0			# Filled in by build.c
 
 	.section ".entrytext", "ax"
 start_of_setup:
-# Force %es = %ds
+# 设置堆栈和段寄存器
+# Force %es = %ds  //设置es=ds
 	movw	%ds, %ax
 	movw	%ax, %es
 	cld
@@ -592,12 +593,12 @@ start_of_setup:
 # pointer if %ss is invalid.  Otherwise leave it alone, LOADLIN sets up the
 # stack behind its own code, so we can't blindly put it directly past the heap.
 
-	movw	%ss, %dx
+	movw	%ss, %dx	
 	cmpw	%ax, %dx	# %ds == %ss?
 	movw	%sp, %dx
 	je	2f		# -> assume %sp is reasonably set
 
-	# Invalid %ss, make up a new stack
+	# Invalid %ss, make up a new stack,如果ss和ds不一样，就说明栈寄存器不太对，就重新做一个栈
 	movw	$_end, %dx
 	testb	$CAN_USE_HEAP, loadflags
 	jz	1f
@@ -607,7 +608,7 @@ start_of_setup:
 	xorw	%dx, %dx	# Prevent wraparound
 
 2:	# Now %dx should point to the end of our stack space
-	andw	$~3, %dx	# dword align (might as well...)
+	andw	$~3, %dx	# dword align (might as well...) dx的值是sp寄存器，598行,这里把它4字节对齐。
 	jnz	3f
 	movw	$0xfffc, %dx	# Make sure we're not zero
 3:	movw	%ax, %ss
@@ -621,7 +622,7 @@ start_of_setup:
 	lretw
 6:
 
-# Check signature at end of setup
+# Check signature at end of setup 检查magic签名
 	cmpl	$0x5a5aaa55, setup_sig
 	jne	setup_bad
 
