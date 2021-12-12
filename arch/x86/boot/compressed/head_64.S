@@ -43,7 +43,7 @@
 	.hidden _ebss
 	.hidden _end
 
-	__HEAD
+	__HEAD	# _HEAD是定义在 include/linux/init.h中的宏，#define __HEAD        .section    ".head.text","ax"，即告诉我们这个段是text段，可执行
 
 /*
  * This macro gives the relative virtual address of X, i.e. the offset of X
@@ -78,7 +78,7 @@ SYM_FUNC_START(startup_32)
 	 * kernel(text+data+bss+brk) ramdisk, zero_page, command line
 	 * all need to be under the 4G limit.
 	 */
-	cld
+	cld	#清空标志寄存器DF
 	cli
 
 /*
@@ -89,7 +89,12 @@ SYM_FUNC_START(startup_32)
  * data at 0x1e4 (defined as a scratch field) are used as the stack
  * for this calculation. Only 4 bytes are needed.
  */
-	leal	(BP_scratch+4)(%esi), %esp
+ # 这段其实就是为了寻找startup_32的地址，因为用的是保护模式，所以需要特殊的办法寻找这个地址，objdump中可以看到这个地址是0x0。但是实际上并不是，这里需要寻找
+	leal	(BP_scratch+4)(%esi), %esp	#esi寄存器包含了boot_params结构的地址，其中0x1e4偏移处的值为scratch，这个位置成为call指令的临时调用栈。+4是因为栈是从上往下长的，所以这里只用到4字节的栈大小
+# 为啥这里要用call指令呢，因为一般我们寻找一个地址，都是先用一个label，然后把label处代码设置为pop reg，
+# call label
+# label: pop %reg
+# 这里就是call 1处的代码，然后把该标签的地址放入ebp寄存器，因为在call的时候，把返回地址存入了栈顶，这里弹出就行了，这就得到了1f处的物理地址，再根据偏移就获得了startup_32的地址
 	call	1f
 1:	popl	%ebp
 	subl	$ rva(1b), %ebp

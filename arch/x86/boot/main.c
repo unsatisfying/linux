@@ -194,5 +194,6 @@ void main(void)
 	set_video();
 
 	/* Do the last things and invoke protected mode */
+	//进入保护模式之前最后干的事情。 函数定义在arch/x86/boot/pm.c
 	go_to_protected_mode();
 }

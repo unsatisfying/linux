@@ -59,11 +59,11 @@ static int a20_test(int loops)
 	set_fs(0x0000);
 	set_gs(0xffff);
 
-	saved = ctr = rdfs32(A20_TEST_ADDR);
+	saved = ctr = rdfs32(A20_TEST_ADDR);//A20_TEST_ADDR的地址放入saved和ctr，即0x0000:4*0x80地址的值，因为还没有开启保护模式，只有段
 
 	while (loops--) {
-		wrfs32(++ctr, A20_TEST_ADDR);
-		io_delay();	/* Serialize and make delay constant */
+		wrfs32(++ctr, A20_TEST_ADDR);//把ctr的值，也就是前面读出来的值写入0x0000:4*0x80, 咱也不知道这里为啥读出来又写回去，这值不一样嘛
+		io_delay();	/* Serialize and make delay constant */ //一毫秒的延迟
 		ok = rdgs32(A20_TEST_ADDR+0x10) ^ ctr;
 		if (ok)
 			break;
