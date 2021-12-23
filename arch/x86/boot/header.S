@@ -290,13 +290,14 @@ root_dev:	.word 0			/* Filled in by build.c */
 boot_flag:	.word 0xAA55
 
 	# offset 512, entry point
+	# boot之后的kernel代码运行处_start, offset为0x200处
 
 	.globl	_start
 _start:
 		# Explicitly enter this as bytes, or the assembler
 		# tries to generate a 3-byte jump here, which causes
 		# everything else to push off to the wrong offset.
-		.byte	0xeb		# short (2-byte) jump //jump的二进制是0xeb，所以这是一条jump语句，跳转到start_of_setup - 1f这个相对地址。
+		.byte	0xeb		# short (2-byte) jump //jump的二进制是0xeb，所以这是一条jump语句，跳转到start_of_setup - 1f这个相对地址。即跳转到start_of_setup函数处
 		.byte	start_of_setup-1f
 1:
 
@@ -579,6 +580,7 @@ handover_offset:	.long 0			# Filled in by build.c
 kernel_info_offset:	.long 0			# Filled in by build.c
 
 # End of setup header #####################################################
+#接下来大部分其实都是为了C语言环境做准备，即准备各种段寄存器，准备堆栈等等。
 
 	.section ".entrytext", "ax"
 start_of_setup:
@@ -616,7 +618,9 @@ start_of_setup:
 	sti			# Now we should have a working stack
 
 # We will have entered with %cs = %ds+0x20, normalize %cs so
-# it is on par with the other segments.
+# it is on par with the other segments. 
+# 这里由于前面为了跳转到0x10200处的_start位置，cs寄存器的值是0x10020，和别的寄存器不一样，别的寄存器是0x10000,所以要把cs寄存器的值恢复成和别的一样。
+# 这里用了一个小技巧，即lretw指令是类似函数function call的返回指令，会把栈pop出来，所以先把ds寄存器的值存入，再把6处的值存入，即把返回地址的值存入，然后pop的时候，cs值就是ds值，然后下一条指令就是6处的指令。
 	pushw	%ds
 	pushw	$6f
 	lretw

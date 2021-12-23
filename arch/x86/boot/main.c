@@ -112,6 +112,7 @@ static void set_bios_mode(void)
 #endif
 }
 
+// 设置堆，保证堆栈相邻，并且堆和栈没有重叠。而且这里的堆栈只是给real mode使用的。
 static void init_heap(void)
 {
 	char *stack_end;
@@ -154,6 +155,7 @@ void main(void)
 	}
 
 	/* Tell the BIOS what CPU mode we intend to run in. */
+	// 告诉BIOS 让CPU运行在什么mode上。
 	set_bios_mode();
 
 	/* Detect memory layout */ 

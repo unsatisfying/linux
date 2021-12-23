@@ -78,7 +78,7 @@ SYM_FUNC_START(startup_32)
 	 * kernel(text+data+bss+brk) ramdisk, zero_page, command line
 	 * all need to be under the 4G limit.
 	 */
-	cld	#清空标志寄存器DF
+	cld	# 清空标志寄存器DF
 	cli
 
 /*
