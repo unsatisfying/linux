@@ -104,6 +104,12 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/initcall.h>
 
+
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+#include <linux/pgp.h>
+#include <linux/dma-contiguous.h>
+#endif
+
 static int kernel_init(void *);
 
 extern void init_IRQ(void);
@@ -465,6 +471,41 @@ static int __init warn_bootconfig(char *str)
 }
 early_param("bootconfig", warn_bootconfig);
 
+#endif
+
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+
+static struct resource pgp_resource = {
+	.name	= "PGP Region",
+	.start	= 0,
+	.end	= 0,
+	.flags	= IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM
+};
+static void __init pgp_init(void)
+{
+	void *ret;
+	ret = memblock_alloc(PGP_ROBUF_SIZE, PAGE_SIZE);
+	if(ret == NULL) {
+		printk("[PGP INIT] ###### fail to alloc pgp ro buf ######");
+		pgp_ro_buf_ready = false;
+	} else {
+		pgp_ro_buf_base = virt_to_phys(ret);
+		pgp_ro_buf_base_va = (unsigned long)ret;
+		pgp_ro_buf_end = pgp_ro_buf_base + PGP_ROBUF_SIZE;
+		pgp_ro_buf_end_va = pgp_ro_buf_base_va + PGP_ROBUF_SIZE;
+		pgp_resource.start = PGP_RO_BUF_BASE;
+		pgp_resource.end = PGP_RO_BUF_BASE + PGP_ROBUF_SIZE -1;
+		insert_resource(&iomem_resource, &pgp_resource);
+		printk("[PGP INIT] ###### succeed to alloc pgp ro buf ######");
+		memset((void *)PGP_ROBUF_VA, 0xfb, PGP_ROBUF_SIZE);
+	}
+	printk("[PGP INIT] PAGE_TABLE_PROTECTION: start_pa is 0x%016lx.\n", PGP_RO_BUF_BASE);
+	printk("[PGP INIT] PAGE_TABLE_PROTECTION: start_va is 0x%016lx\n", PGP_ROBUF_VA);
+	printk("[PGP INIT] PAGE_TABLE_PROTECTION: size is 0x%016lx\n", PGP_ROBUF_SIZE);
+
+	// Test done
+}
+// postcore_initcall(pgp_init);
 #endif
 
 /* Change NUL term back to "=", to make "param" the whole string. */
@@ -871,6 +912,11 @@ asmlinkage __visible void __init start_kernel(void)
 		parse_args("Setting extra init args", extra_init_args,
 			   NULL, 0, -1, -1, NULL, set_init_arg);
 
+	#ifdef CONFIG_PAGE_TABLE_PROTECTION
+	pgp_init();
+	init_pgp_page_list();
+	pgp_ro_buf_ready = true;
+	#endif
 	/*
 	 * These use large bootmem allocations and must precede
 	 * kmem_cache_init()
