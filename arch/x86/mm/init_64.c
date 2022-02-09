@@ -59,6 +59,10 @@
 
 #include "ident_map.c"
 
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+#include <linux/pgp.h>
+#endif
+
 #define DEFINE_POPULATE(fname, type1, type2, init)		\
 static inline void fname##_init(struct mm_struct *mm,		\
 		type1##_t *arg1, type2##_t *arg2, bool init)	\
@@ -224,7 +228,13 @@ void sync_global_pgds(unsigned long start, unsigned long end)
 static __ref void *spp_getpage(void)
 {
 	void *ptr;
-
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+	if(pgp_ro_buf_ready)
+	{	
+		ptr = pgp_ro_zalloc();
+		return ptr;
+	}
+#endif
 	if (after_bootmem)
 		ptr = (void *) get_zeroed_page(GFP_ATOMIC);
 	else
@@ -236,14 +246,23 @@ static __ref void *spp_getpage(void)
 	}
 
 	pr_debug("spp_getpage %p\n", ptr);
-
+	// PGP_WARNING("triger SPP_getpage");
+	// printk(" [PGP] spp_getpage: ptr=%016lx.",(unsigned long)ptr);
 	return ptr;
 }
 
 static p4d_t *fill_p4d(pgd_t *pgd, unsigned long vaddr)
 {
 	if (pgd_none(*pgd)) {
+// #ifdef CONFIG_PAGE_TABLE_PROTECTION_P4D
+// 		p4d_t *p4d = (p4d_t *)pgp_ro_zalloc();
+// 		if(!p4d) {
+// 			PGP_WARNING_ALLOC();
+// 			p4d = (p4d_t *)spp_getpage();
+// 		}
+// #else
 		p4d_t *p4d = (p4d_t *)spp_getpage();
+// #endif
 		pgd_populate(&init_mm, pgd, p4d);
 		if (p4d != p4d_offset(pgd, 0))
 			printk(KERN_ERR "PAGETABLE BUG #00! %p <-> %p\n",
@@ -372,7 +391,15 @@ static void __init __init_extra_mapping(unsigned long phys, unsigned long size,
 	for (; size; phys += PMD_SIZE, size -= PMD_SIZE) {
 		pgd = pgd_offset_k((unsigned long)__va(phys));
 		if (pgd_none(*pgd)) {
+// #ifdef CONFIG_PAGE_TABLE_PROTECTION_P4D
+// 			p4d = (p4d_t *) pgp_ro_zalloc();
+// 			if(!p4d) {
+// 				PGP_WARNING_ALLOC();
+// 				p4d = (p4d_t *) spp_getpage();
+// 			}
+// #else
 			p4d = (p4d_t *) spp_getpage();
+// #endif
 			set_pgd(pgd, __pgd(__pa(p4d) | _KERNPG_TABLE |
 						_PAGE_USER));
 		}
@@ -878,7 +905,17 @@ static void __meminit free_pagetable(struct page *page, int order)
 {
 	unsigned long magic;
 	unsigned int nr_pages = 1 << order;
-
+#ifdef PGP_DEBUG_ALLOCATION
+	void* addr = page_to_virt(page);
+	PGP_WARNING("[PGP]: trigger free_pagetable");
+	if(pgp_ro_buf_ready && is_pgp_ro_page((unsigned long) addr))
+	{
+		if(!pgp_ro_free(addr))
+		{
+			PGP_WARNING("[PGP] free_pagetable: fail to free page");
+		}
+	}
+#endif
 	/* bootmem page has reserved flag */
 	if (PageReserved(page)) {
 		__ClearPageReserved(page);

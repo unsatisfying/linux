@@ -2,6 +2,7 @@
 #include <linux/spinlock.h>
 #include <linux/types.h>
 #include <linux/mm.h>
+#include <linux/pt.h>
 
 unsigned long pgp_ro_buf_base = 0;
 EXPORT_SYMBOL(pgp_ro_buf_base);
@@ -12,11 +13,21 @@ EXPORT_SYMBOL(pgp_ro_buf_base_va);
 unsigned long pgp_ro_buf_end_va = 0;
 EXPORT_SYMBOL(pgp_ro_buf_end_va);
 
+
 bool pgp_ro_buf_ready = false;
 EXPORT_SYMBOL(pgp_ro_buf_ready);
 volatile bool pgp_hyp_init = false;
 EXPORT_SYMBOL(pgp_hyp_init);
 
+
+#ifdef PGP_DEBUG_ALLOCATION
+int pgcnt = 0;
+EXPORT_SYMBOL(pgcnt);
+long alloc_cnt = 0;
+EXPORT_SYMBOL(alloc_cnt);
+long free_cnt = 0;
+EXPORT_SYMBOL(free_cnt);
+#endif
 
 spinlock_t ro_pgp_pages_lock = __SPIN_LOCK_UNLOCKED();
 LIST_HEAD(pgp_page_list);
@@ -39,6 +50,9 @@ void __init init_pgp_page_list(void)
 		}
 	}
 	printk("[PGP INIT]: %d available pgp ro pages in total, expect: %ld\n", cnt, PGP_RO_PAGES);
+#ifdef PGP_DEBUG_ALLOCATION
+	pgcnt = cnt;
+#endif
 }
 
 /**
@@ -60,6 +74,10 @@ struct page *pgp_ro_alloc(void)
 	if(page != NULL) {
 		list_del(&page->lru);
 	}
+#ifdef PGP_DEBUG_ALLOCATION
+		pgcnt --;
+		alloc_cnt ++;
+#endif
 	spin_unlock_irqrestore(&ro_pgp_pages_lock,flags);
 
 out:
@@ -104,6 +122,10 @@ bool pgp_ro_free(void* addr)
 	
 	spin_lock_irqsave(&ro_pgp_pages_lock, flags);
 	list_add(&page->lru, &pgp_page_list);
+#ifdef PGP_DEBUG_ALLOCATION
+	pgcnt ++;
+	free_cnt ++;
+#endif
 	spin_unlock_irqrestore(&ro_pgp_pages_lock, flags);
 
 	return true;

@@ -45,6 +45,13 @@
 #include <asm/vsyscall.h>
 #include <linux/vmalloc.h>
 
+
+// #ifdef CONFIG_PAGE_TABLE_PROTECTION
+// #include <linux/pgp.h>
+// #include <linux/dma-contiguous.h>
+// #endif
+
+
 /*
  * max_low_pfn_mapped: highest directly mapped pfn < 4 GB
  * max_pfn_mapped:     highest directly mapped pfn > 4 GB
@@ -104,6 +111,40 @@ static struct resource bss_resource = {
 	.flags	= IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM
 };
 
+// #ifdef CONFIG_PAGE_TABLE_PROTECTION
+
+// static struct resource pgp_resource = {
+// 	.name	= "PGP Region",
+// 	.start	= 0,
+// 	.end	= 0,
+// 	.flags	= IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM
+// };
+// static void __init pgp_init(void)
+// {
+// 	void *ret;
+// 	ret = memblock_alloc(PGP_ROBUF_SIZE, PAGE_SIZE);
+// 	if(ret == NULL) {
+// 		printk("[PGP INIT] ###### fail to alloc pgp ro buf ######");
+// 		pgp_ro_buf_ready = false;
+// 	} else {
+// 		pgp_ro_buf_base = virt_to_phys(ret);
+// 		pgp_ro_buf_base_va = (unsigned long)ret;
+// 		pgp_ro_buf_end = pgp_ro_buf_base + PGP_ROBUF_SIZE;
+// 		pgp_ro_buf_end_va = pgp_ro_buf_base_va + PGP_ROBUF_SIZE;
+// 		pgp_resource.start = PGP_RO_BUF_BASE;
+// 		pgp_resource.end = PGP_RO_BUF_BASE + PGP_ROBUF_SIZE -1;
+// 		insert_resource(&iomem_resource, &pgp_resource);
+// 		printk("[PGP INIT] ###### succeed to alloc pgp ro buf ######");
+// 		memset((void *)PGP_ROBUF_VA, 0xfb, PGP_ROBUF_SIZE);
+// 	}
+// 	printk("[PGP INIT] PAGE_TABLE_PROTECTION: start_pa is 0x%016lx.\n", PGP_RO_BUF_BASE);
+// 	printk("[PGP INIT] PAGE_TABLE_PROTECTION: start_va is 0x%016lx\n", PGP_ROBUF_VA);
+// 	printk("[PGP INIT] PAGE_TABLE_PROTECTION: size is 0x%016lx\n", PGP_ROBUF_SIZE);
+
+// 	// Test done
+// }
+// // postcore_initcall(pgp_init);
+// #endif
 
 #ifdef CONFIG_X86_32
 /* CPU data as detected by the assembly code in head_32.S */
@@ -1172,6 +1213,12 @@ void __init setup_arch(char **cmdline_p)
 	if (!early_xdbc_setup_hardware())
 		early_xdbc_register_console();
 
+
+// #ifdef CONFIG_PAGE_TABLE_PROTECTION
+// 	pgp_init();
+// 	init_pgp_page_list();
+// 	pgp_ro_buf_ready = true;
+// #endif
 	x86_init.paging.pagetable_init();
 
 	kasan_init();

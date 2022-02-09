@@ -8,6 +8,10 @@
 #include <asm/fixmap.h>
 #include <asm/mtrr.h>
 
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+#include <linux/pgp.h>
+#endif
+
 #ifdef CONFIG_DYNAMIC_PHYSICAL_MASK
 phys_addr_t physical_mask __ro_after_init = (1ULL << __PHYSICAL_MASK_SHIFT) - 1;
 EXPORT_SYMBOL(physical_mask);
@@ -404,13 +408,35 @@ static inline void _pgd_free(pgd_t *pgd)
 
 static inline pgd_t *_pgd_alloc(void)
 {
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_PGD
+	pgd_t *pgd;
+	pgd = (pgd_t *)pgp_ro_zalloc();
+	if(!pgd)
+	{
+		if(pgp_ro_buf_ready)
+			PGP_WARNING_ALLOC();
+		return (pgd_t *)__get_free_pages(GFP_PGTABLE_USER,
+					 PGD_ALLOCATION_ORDER);
+	}
+	return pgd;
+#else
 	return (pgd_t *)__get_free_pages(GFP_PGTABLE_USER,
 					 PGD_ALLOCATION_ORDER);
+#endif
 }
 
 static inline void _pgd_free(pgd_t *pgd)
 {
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_PGD
+	if(!pgp_ro_buf_ready)
+		free_pages((unsigned long)pgd, PGD_ALLOCATION_ORDER);
+	else if(!pgp_ro_free((void *)pgd)) {
+		PGP_WARNING_FREE(pgd);
+		free_pages((unsigned long)pgd, PGD_ALLOCATION_ORDER);
+	}
+#else
 	free_pages((unsigned long)pgd, PGD_ALLOCATION_ORDER);
+#endif
 }
 #endif /* CONFIG_X86_PAE */
 
@@ -821,12 +847,26 @@ int pud_free_pmd_page(pud_t *pud, unsigned long addr)
 	for (i = 0; i < PTRS_PER_PMD; i++) {
 		if (!pmd_none(pmd_sv[i])) {
 			pte = (pte_t *)pmd_page_vaddr(pmd_sv[i]);
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_PTE
+			if(!pgp_ro_free((void *)pte)){
+				PGP_WARNING_FREE(pte);
+				free_page((unsigned long)pte);
+			}
+#else
 			free_page((unsigned long)pte);
+#endif
 		}
 	}
 
 	free_page((unsigned long)pmd_sv);
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_PMD
+	if(!pgp_ro_free((void *)pmd)){
+		PGP_WARNING_FREE(pmd);
+		free_page((unsigned long)pmd);
+	}
+#else
 	free_page((unsigned long)pmd);
+#endif
 
 	return 1;
 }
@@ -849,7 +889,14 @@ int pmd_free_pte_page(pmd_t *pmd, unsigned long addr)
 	/* INVLPG to clear all paging-structure caches */
 	flush_tlb_kernel_range(addr, addr + PAGE_SIZE-1);
 
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_PTE
+	if(!pgp_ro_free((void *)pte)){
+		PGP_WARNING_FREE(pte);
+		free_page((unsigned long)pte);
+	}
+#else
 	free_page((unsigned long)pte);
+#endif
 
 	return 1;
 }

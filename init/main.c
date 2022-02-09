@@ -846,7 +846,15 @@ static void __init mm_init(void)
 	page_ext_init_flatmem();
 	init_debug_pagealloc();
 	report_meminit();
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+	pgp_init();
+	__memblock_dump_all();
 	mem_init();
+	init_pgp_page_list();
+	pgp_ro_buf_ready = true;
+#else
+	mem_init();
+#endif
 	kmem_cache_init();
 	kmemleak_init();
 	pgtable_init();
@@ -912,11 +920,11 @@ asmlinkage __visible void __init start_kernel(void)
 		parse_args("Setting extra init args", extra_init_args,
 			   NULL, 0, -1, -1, NULL, set_init_arg);
 
-	#ifdef CONFIG_PAGE_TABLE_PROTECTION
-	pgp_init();
-	init_pgp_page_list();
-	pgp_ro_buf_ready = true;
-	#endif
+	// #ifdef CONFIG_PAGE_TABLE_PROTECTION
+	// pgp_init();
+	// init_pgp_page_list();
+	// pgp_ro_buf_ready = true;
+	// #endif
 	/*
 	 * These use large bootmem allocations and must precede
 	 * kmem_cache_init()

@@ -181,7 +181,17 @@ static p4d_t *pti_user_pagetable_walk_p4d(unsigned long address)
 	}
 
 	if (pgd_none(*pgd)) {
+// #ifdef CONFIG_PAGE_TABLE_PROTECTION_P4D
+// 		unsigned long new_p4d_page = pgp_ro_zalloc();
+// 		if(!new_p4d_page)
+// 		{
+// 			if(pgp_ro_buf_ready)
+// 				PGP_WARNING_ALLOC();
+// 			new_p4d_page = __get_free_page(gfp);
+// 		}
+// #else
 		unsigned long new_p4d_page = __get_free_page(gfp);
+// #endif
 		if (WARN_ON_ONCE(!new_p4d_page))
 			return NULL;
 

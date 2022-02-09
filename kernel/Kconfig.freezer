@@ -33,5 +33,5 @@ config PAGE_TABLE_PROTECTION_PTE
 
 config TEXT_SECTION_PROTECTION
 	bool
-	default y
+	default n
 

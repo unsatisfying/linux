@@ -15,7 +15,11 @@ extern unsigned long pgp_ro_buf_base_va;
 extern unsigned long pgp_ro_buf_end_va;
 extern bool pgp_ro_buf_ready;
 
-
+#ifdef PGP_DEBUG_ALLOCATION
+extern int pgcnt;
+extern long alloc_cnt;
+extern long free_cnt;
+#endif
 
 /* defined in kernel/pgp.c */
 #define PGP_RO_BUF_BASE pgp_ro_buf_base

@@ -29,7 +29,9 @@
 #include <asm/set_memory.h>
 
 #include "../mm_internal.h"
-
+// #ifdef CONFIG_PAGE_TABLE_PROTECTION
+// #include <linux/pgp.h>
+// #endif
 /*
  * The current flushing context - we pass it instead of 5 arguments:
  */
@@ -1418,7 +1420,15 @@ static int populate_pgd(struct cpa_data *cpa, unsigned long addr)
 	pgd_entry = cpa->pgd + pgd_index(addr);
 
 	if (pgd_none(*pgd_entry)) {
+// #ifdef CONFIG_PAGE_TABLE_PROTECTION_P4D
+// 		p4d = (p4d_t *)pgp_ro_zalloc();
+// 		if(!p4d){
+// 			PGP_WARNING_ALLOC();
+// 			p4d = (p4d_t *)get_zeroed_page(GFP_KERNEL);
+// 		}
+// #else
 		p4d = (p4d_t *)get_zeroed_page(GFP_KERNEL);
+// #endif
 		if (!p4d)
 			return -1;
 
@@ -1430,7 +1440,15 @@ static int populate_pgd(struct cpa_data *cpa, unsigned long addr)
 	 */
 	p4d = p4d_offset(pgd_entry, addr);
 	if (p4d_none(*p4d)) {
+// #ifdef CONFIG_PAGE_TABLE_PROTECTION_PUD
+// 		pud = (pud_t *)pgp_ro_zalloc();
+// 		if(!pud){
+// 			PGP_WARNING_ALLOC();
+// 			pud = (pud_t *)get_zeroed_page(GFP_KERNEL);
+// 		}
+// #else
 		pud = (pud_t *)get_zeroed_page(GFP_KERNEL);
+// #endif
 		if (!pud)
 			return -1;
 

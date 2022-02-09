@@ -21,7 +21,9 @@
 
 #include <asm/page.h>
 #include <asm/pgalloc.h>
-
+// #ifdef CONFIG_PAGE_TABLE_PROTECTION
+// #include <linux/pgp.h>
+// #endif
 #include "kasan.h"
 
 /*
@@ -278,7 +280,35 @@ int __ref kasan_populate_early_shadow(const void *shadow_start,
 
 		if (pgd_none(*pgd)) {
 			p4d_t *p;
-
+// #ifdef CONFIG_PAGE_TABLE_PROTECTION_P4D
+// 			if (pgp_ro_buf_ready)
+// 			{
+// 				p = (p4d_t *)pgp_ro_zalloc();
+// 				if(!p)
+// 				{
+// 					PGP_WARNING_ALLOC();
+// 					if (slab_is_available()) 
+// 					{
+// 						p = p4d_alloc(&init_mm, pgd, addr);
+// 						if (!p)
+// 							return -ENOMEM;
+// 					} 
+// 					else 
+// 					{
+// 						pgd_populate(&init_mm, pgd,
+// 							early_alloc(PAGE_SIZE, NUMA_NO_NODE));
+// 					}
+// 				}
+// 			}
+// 			else if (slab_is_available()) {
+// 				p = p4d_alloc(&init_mm, pgd, addr);
+// 				if (!p)
+// 					return -ENOMEM;
+// 			} else {
+// 				pgd_populate(&init_mm, pgd,
+// 					early_alloc(PAGE_SIZE, NUMA_NO_NODE));
+// 			}
+// #else			
 			if (slab_is_available()) {
 				p = p4d_alloc(&init_mm, pgd, addr);
 				if (!p)
@@ -287,8 +317,10 @@ int __ref kasan_populate_early_shadow(const void *shadow_start,
 				pgd_populate(&init_mm, pgd,
 					early_alloc(PAGE_SIZE, NUMA_NO_NODE));
 			}
+// #endif
 		}
 		zero_p4d_populate(pgd, addr, next);
+
 	} while (pgd++, addr = next, addr != end);
 
 	return 0;

@@ -76,6 +76,10 @@
 #include "shuffle.h"
 #include "page_reporting.h"
 
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+#include <linux/pgp.h>
+#endif
+
 /* prevent >1 _updater_ of zone percpu pageset ->high and ->batch fields */
 static DEFINE_MUTEX(pcp_batch_high_lock);
 #define MIN_PERCPU_PAGELIST_FRACTION	(8)
@@ -972,7 +976,14 @@ static inline void __free_one_page(struct page *page,
 	unsigned int max_order;
 	struct page *buddy;
 	bool to_tail;
-
+#ifdef PGP_DEBUG_ALLOCATION 
+	unsigned long addr;
+	addr = page_to_virt(page);
+	if(pgp_ro_buf_ready && is_pgp_ro_page(addr))
+	{
+		panic("[PGP] free pgp ro page: 0x%016llx", page_to_phys(page));
+	}
+#endif
 	max_order = min_t(unsigned int, MAX_ORDER, pageblock_order + 1);
 
 	VM_BUG_ON(!zone_is_initialized(zone));
@@ -1174,7 +1185,14 @@ static __always_inline bool free_pages_prepare(struct page *page,
 					unsigned int order, bool check_free)
 {
 	int bad = 0;
-
+#ifdef PGP_DEBUG_ALLOCATION 
+	unsigned long addr;
+	addr = page_to_virt(page);
+	if(pgp_ro_buf_ready && is_pgp_ro_page(addr))
+	{
+		panic("[PGP] free pgp ro page: 0x%016llx", page_to_phys(page));
+	}
+#endif
 	VM_BUG_ON_PAGE(PageTail(page), page);
 
 	trace_mm_page_free(page, order);
@@ -1468,7 +1486,14 @@ static void __free_pages_ok(struct page *page, unsigned int order)
 	unsigned long flags;
 	int migratetype;
 	unsigned long pfn = page_to_pfn(page);
-
+#ifdef PGP_DEBUG_ALLOCATION 
+	unsigned long addr;
+	addr = page_to_virt(page);
+	if(pgp_ro_buf_ready && is_pgp_ro_page(addr))
+	{
+		panic("[PGP] free pgp ro page: 0x%016llx", page_to_phys(page));
+	}
+#endif
 	if (!free_pages_prepare(page, order, true))
 		return;
 
@@ -4839,6 +4864,11 @@ out:
 
 	trace_mm_page_alloc(page, order, alloc_mask, ac.migratetype);
 
+#if defined(CONFIG_PAGE_TABLE_PROTECTION) && defined(PGP_DEBUG_ALLOCATION)
+	if(pgp_ro_buf_ready && (unsigned long)page_address(page) >= PGP_ROBUF_VA && (unsigned long)page_address(page) < PGP_ROBUF_VA + PGP_ROBUF_SIZE){
+		panic("[PGP] alloc page to others: 0x%016lx, val: 0x%016lx", (unsigned long)page_address(page), *(unsigned long *)page_address(page));
+	}
+#endif
 	return page;
 }
 EXPORT_SYMBOL(__alloc_pages_nodemask);
@@ -4882,6 +4912,12 @@ EXPORT_SYMBOL(__free_pages);
 
 void free_pages(unsigned long addr, unsigned int order)
 {
+#if defined(CONFIG_PAGE_TABLE_PROTECTION) && defined(PGP_DEBUG_ALLOCATION)
+	if(pgp_ro_buf_ready && addr >= PGP_ROBUF_VA && addr < PGP_ROBUF_VA + PGP_ROBUF_SIZE){
+		printk("[PGP] free ro page: 0x%016lx", addr);
+	}
+#endif
+
 	if (addr != 0) {
 		VM_BUG_ON(!virt_addr_valid((void *)addr));
 		__free_pages(virt_to_page((void *)addr), order);

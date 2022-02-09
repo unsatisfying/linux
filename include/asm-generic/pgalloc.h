@@ -2,6 +2,9 @@
 #ifndef __ASM_GENERIC_PGALLOC_H
 #define __ASM_GENERIC_PGALLOC_H
 
+#ifdef CONFIG_PAGE_TABLE_PROTECTION
+#include <linux/pgp.h>
+#endif
 #ifdef CONFIG_MMU
 
 #define GFP_PGTABLE_KERNEL	(GFP_KERNEL | __GFP_ZERO)
@@ -18,7 +21,18 @@
  */
 static inline pte_t *__pte_alloc_one_kernel(struct mm_struct *mm)
 {
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_PTE
+	pte_t *pte;
+	
+	pte = (pte_t *)pgp_ro_zalloc();
+	if (!pte) {
+		PGP_WARNING_ALLOC();
+		return (pte_t *)__get_free_page(GFP_PGTABLE_KERNEL);
+	}
+	return pte;
+#else
 	return (pte_t *)__get_free_page(GFP_PGTABLE_KERNEL);
+#endif
 }
 
 #ifndef __HAVE_ARCH_PTE_ALLOC_ONE_KERNEL
@@ -41,7 +55,14 @@ static inline pte_t *pte_alloc_one_kernel(struct mm_struct *mm)
  */
 static inline void pte_free_kernel(struct mm_struct *mm, pte_t *pte)
 {
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_PTE
+	if (!pgp_ro_free((void *)pte)) {
+		PGP_WARNING_FREE(pte);
+		free_page((unsigned long)pte);
+	}
+#else
 	free_page((unsigned long)pte);
+#endif
 }
 
 /**
@@ -59,7 +80,28 @@ static inline void pte_free_kernel(struct mm_struct *mm, pte_t *pte)
 static inline pgtable_t __pte_alloc_one(struct mm_struct *mm, gfp_t gfp)
 {
 	struct page *pte;
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_PTE
+	void* ret;
+	ret = pgp_ro_zalloc();
+	if (!ret) {
+		PGP_WARNING_ALLOC();
+		pte = alloc_page(gfp);
+		if(!pte)
+			return NULL;
+		if (!pgtable_pte_page_ctor(pte)) {
+			__free_page(pte);
+			return NULL;
+		}
+		return pte;
+	}
 
+	pte = virt_to_page(ret);
+	if(!pgtable_pte_page_ctor(pte)) {
+		pgp_ro_free(ret);
+		return NULL;
+	}
+	return pte;
+#else
 	pte = alloc_page(gfp);
 	if (!pte)
 		return NULL;
@@ -69,6 +111,7 @@ static inline pgtable_t __pte_alloc_one(struct mm_struct *mm, gfp_t gfp)
 	}
 
 	return pte;
+#endif
 }
 
 #ifndef __HAVE_ARCH_PTE_ALLOC_ONE
@@ -98,8 +141,17 @@ static inline pgtable_t pte_alloc_one(struct mm_struct *mm)
  */
 static inline void pte_free(struct mm_struct *mm, struct page *pte_page)
 {
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_PTE
+	void *pte = page_address(pte_page);
+	pgtable_pte_page_dtor(pte_page);
+	if(!pgp_ro_free(pte)){
+		PGP_WARNING_FREE(pte);
+		__free_page(pte_page);
+	}
+#else
 	pgtable_pte_page_dtor(pte_page);
 	__free_page(pte_page);
+#endif
 }
 
 #endif /* CONFIG_MMU */

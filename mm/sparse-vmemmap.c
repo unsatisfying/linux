@@ -29,8 +29,10 @@
 #include <linux/sched.h>
 #include <asm/dma.h>
 #include <asm/pgalloc.h>
-#include <asm/pgtable.h>
-
+// #include <asm/pgtable.h>
+// #ifdef CONFIG_PAGE_TABLE_PROTECTION
+// #include <linux/pgp.h>
+// #endif
 /*
  * Allocate a block of memory to be used to back the virtual memory map
  * or to back the page tables that are used to create the mapping.
@@ -193,7 +195,15 @@ p4d_t * __meminit vmemmap_p4d_populate(pgd_t *pgd, unsigned long addr, int node)
 {
 	p4d_t *p4d = p4d_offset(pgd, addr);
 	if (p4d_none(*p4d)) {
+// #ifdef CONFIG_PAGE_TABLE_PROTECTION_P4D
+// 		void *p = pgp_ro_zalloc();
+// 		if(!p) {
+// 			PGP_WARNING_ALLOC();
+// 			p = vmemmap_alloc_block_zero(PAGE_SIZE, node);
+// 		}
+// #else
 		void *p = vmemmap_alloc_block_zero(PAGE_SIZE, node);
+// #endif
 		if (!p)
 			return NULL;
 		p4d_populate(&init_mm, p4d, p);
@@ -205,7 +215,15 @@ pgd_t * __meminit vmemmap_pgd_populate(unsigned long addr, int node)
 {
 	pgd_t *pgd = pgd_offset_k(addr);
 	if (pgd_none(*pgd)) {
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_PGD
+		void *p = pgp_ro_zalloc();
+		if(!p) {
+			PGP_WARNING_ALLOC();
+			p = vmemmap_alloc_block_zero(PAGE_SIZE, node);
+		}
+#else
 		void *p = vmemmap_alloc_block_zero(PAGE_SIZE, node);
+#endif
 		if (!p)
 			return NULL;
 		pgd_populate(&init_mm, pgd, p);
