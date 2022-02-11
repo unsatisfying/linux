@@ -72,6 +72,10 @@
 #include <asm/intel_pt.h>
 #include <asm/emulate_prefix.h>
 #include <clocksource/hyperv_timer.h>
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_KVM
+#include <linux/pgp.h>
+#include <linux/pt.h>
+#endif
 
 #define CREATE_TRACE_POINTS
 #include "trace.h"
@@ -7541,6 +7545,22 @@ static void kvm_sched_yield(struct kvm *kvm, unsigned long dest_id)
 	if (target && READ_ONCE(target->ready))
 		kvm_vcpu_yield_to(target);
 }
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_KVM
+void kvm_help_write_long()
+{
+
+}
+
+void kvm_help_memcpy()
+{
+
+}
+
+void kvm_help_memset()
+{
+	
+}
+#endif
 
 int kvm_emulate_hypercall(struct kvm_vcpu *vcpu)
 {
@@ -7593,6 +7613,20 @@ int kvm_emulate_hypercall(struct kvm_vcpu *vcpu)
 		kvm_sched_yield(vcpu->kvm, a0);
 		ret = 0;
 		break;
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_KVM
+	case KVM_HC_WRITE_LONG:
+		kvm_help_write_long();
+		ret = 0;
+		break;
+	case KVM_HC_MEMCPY:
+		kvm_help_memcpy();
+		ret = 0;
+		break;
+	case KVM_HC_MEMSET:
+		kvm_help_memset();
+		ret = 0;
+		break;
+#endif
 	default:
 		ret = -KVM_ENOSYS;
 		break;

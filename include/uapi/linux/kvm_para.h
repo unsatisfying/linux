@@ -30,6 +30,11 @@
 #define KVM_HC_SEND_IPI		10
 #define KVM_HC_SCHED_YIELD		11
 
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_KVM
+#define KVM_HC_WRITE_LONG   12
+#define KVM_HC_MEMCPY       13
+#define KVM_HC_MEMSET       14
+#endif
 /*
  * hypercalls use architecture specific
  */
