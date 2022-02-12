@@ -51,7 +51,7 @@ vmlinux.symvers
 Module.symvers
 modules.builtin
 modules.order
-
+vmlinux.txt
 #
 # Top-level generic files
 #

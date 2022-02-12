@@ -33,6 +33,7 @@
 #include <asm/io.h>
 #include <linux/pt.h>
 #include <linux/pgp.h>
+#include <linux/kvm_para.h>
 #define MAX_SIZE 4096
 static char msg[MAX_SIZE];
 // static unsigned long phys_start = 0;
@@ -74,124 +75,6 @@ int pgp_check_fail(unsigned long addr, char *name)
     return 0;
 }
 
-// int check_pte(pmd_t addr)
-// {
-// 	pte_t *pte;
-//     pte=(pte_t *)pmd_page_vaddr(addr);
-//     check_sum++;
-//     if(!is_pgp_ro_page((unsigned long)pte))
-//         pgp_check_fail((unsigned long)pte, "pte");
-
-//     return 0;   
-// }
-
-// int check_pmd(pud_t addr)
-// {
-//     int i;
-// 	pmd_t *start, *pmd_start;
-//     pmd_start = start = (pmd_t *)pud_page_vaddr(addr);
-//     check_sum++;
-//     if(!is_pgp_ro_page((unsigned long)start))
-//         pgp_check_fail((unsigned long)start, "pmd");
-    
-//     for (i = 0; i < PTRS_PER_PMD; i++) {
-//         if (!pmd_none(*start))
-//         {
-//             if (pmd_large(*start) || !pmd_present(*start)) 
-//             {
-// 				continue;
-// 			}
-//             else
-//             {
-//                 check_pte(*start);
-//             }
-//         }
-//         start++;
-//     }
-//     return 0;
-// }
-
-// int check_pud(p4d_t addr)
-// {
-//     int i;
-//     pud_t *start, *pud_start;
-//     pud_start = start = (pud_t *)p4d_page_vaddr(addr);
-//     check_sum++;
-//     if(!is_pgp_ro_page((unsigned long)start))
-//         pgp_check_fail((unsigned long)start, "pud");
-
-//     for (i = 0; i < PTRS_PER_PUD; i++) {
-//         if (!pud_none(*start))
-//         {
-//             if (pud_large(*start) || !pud_present(*start)) 
-//             {
-// 				continue;
-// 			}
-//             else
-//             {
-//                 check_pmd(*start);
-//             }
-//         }
-//         start++;
-//     }
-//     return 0;
-// }
-
-// int check_p4d(pgd_t addr)
-// {
-//     int i;
-//     p4d_t *start, *p4d_start;
-//     p4d_start = start = (p4d_t *)pgd_page_vaddr(addr);
-//     check_sum++;
-//     if (PTRS_PER_P4D == 1)
-//     {
-//         check_pud(*start);
-//         return 0;
-//     }
-    
-//     if(!is_pgp_ro_page((unsigned long)p4d_start))
-//         pgp_check_fail((unsigned long)p4d_start, "p4d");
-
-//     for (i = 0; i < PTRS_PER_P4D; i++) {
-//         if (!p4d_none(*start))
-//         {
-//             if (p4d_large(*start) || !p4d_present(*start))
-//             {
-//                 continue;
-//             }
-//             else
-//             {
-//                 check_pud(*start);
-//             }
-//         }
-//         start++;
-//     }
-//     return 0;
-// }
-
-// int check_pgd(pgd_t *pgdp)
-// {
-//     int i;
-//     pgd_t *start;
-//     start = pgdp;
-//     check_sum++;
-//     if(!is_pgp_ro_page((unsigned long)pgdp))
-//         pgp_check_fail((unsigned long)pgdp, "pgd");
-
-//     for (i = 0; i < PTRS_PER_PGD; i++) {
-//         if (!pgd_none(*start))
-//         {
-//             if (pgd_large(*start) || !pgd_present(*start))
-//                 continue;
-//             else
-//             {
-//                 check_p4d(*start);
-//             }
-//         }
-//         start++;
-//     }
-//     return 0;
-// }
 
 int check_pgt_region(void)
 {
@@ -843,24 +726,6 @@ void ptdump_walk_pgd_level_old(struct seq_file *m, pgd_t *pgd)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ssize_t proc_read(struct file *filp, char __user *buf, size_t count, loff_t *offp) 
 {
     printk("============== module phys statics ==============\n");
@@ -870,6 +735,15 @@ ssize_t proc_read(struct file *filp, char __user *buf, size_t count, loff_t *off
 	return 0;
 }
 
+int pgp_set_memory_ro(unsigned long addr, int numpages)
+{
+	
+}
+
+int pgp_set_memory_rw(unsigned long addr, int numpages)
+{
+	
+}
 ssize_t proc_write(struct file *filp,const char *buf,size_t count,loff_t *offp)
 {
     int remain, id;
@@ -886,11 +760,11 @@ ssize_t proc_write(struct file *filp,const char *buf,size_t count,loff_t *offp)
     sscanf(msg, "%d", &id);
     switch(id) {
         case SET_MEM_RO:
-            set_memory_ro(PGP_ROBUF_VA, PGP_RO_PAGES);
+            pgp_set_memory_ro(PGP_ROBUF_VA, PGP_RO_PAGES);
             printk("[PGP] set PGP buffer ro\n");
             break;
         case SET_MEM_RW:
-            set_memory_rw(PGP_ROBUF_VA, PGP_RO_PAGES);
+            pgp_set_memory_rw(PGP_ROBUF_VA, PGP_RO_PAGES);
             printk("[PGP] set PGP buffer rw\n");
             break;
         default:
