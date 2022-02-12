@@ -10,6 +10,10 @@
 #
 # Normal rules (sorted alphabetically)
 #
+lkvm
+scripts/module.lds
+vmlinux.symvers
+
 .*
 *.a
 *.asn1.[ch]
