@@ -67,6 +67,13 @@ struct px_memory_region {
 #define JAILHOUSE_HC_MEMCPY	0x80000000
 #define JAILHOUSE_HC_MEMSET	0x40000000
 
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_KVM
+#define KVM_HC_WRITE_LONG       12
+#define KVM_HC_MEMCPY           13
+#define KVM_HC_MEMSET           14
+#endif
+
+#define TEST_HYCALL 4
 #define SET_MEM_RO 5
 #define SET_MEM_RW 6
 

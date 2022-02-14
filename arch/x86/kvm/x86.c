@@ -7546,19 +7546,19 @@ static void kvm_sched_yield(struct kvm *kvm, unsigned long dest_id)
 		kvm_vcpu_yield_to(target);
 }
 #ifdef CONFIG_PAGE_TABLE_PROTECTION_KVM
-void kvm_help_write_long()
+static int kvm_help_write_long(void)
 {
-
+	return 0;
 }
 
-void kvm_help_memcpy()
+static int kvm_help_memcpy(void)
 {
-
+	return 0;
 }
 
-void kvm_help_memset()
+static int kvm_help_memset(void)
 {
-	
+	return 0;
 }
 #endif
 

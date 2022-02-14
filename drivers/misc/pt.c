@@ -737,17 +737,18 @@ ssize_t proc_read(struct file *filp, char __user *buf, size_t count, loff_t *off
 
 int pgp_set_memory_ro(unsigned long addr, int numpages)
 {
-	
+	pgp_hyp_init = true;
+	set_memory_ro(PGP_ROBUF_VA, PGP_RO_PAGES);
 }
 
 int pgp_set_memory_rw(unsigned long addr, int numpages)
 {
-	
+	set_memory_rw(PGP_ROBUF_VA, PGP_RO_PAGES);
+	pgp_hyp_init = false;
 }
 ssize_t proc_write(struct file *filp,const char *buf,size_t count,loff_t *offp)
 {
     int remain, id;
-
 	if (count > MAX_SIZE){
 		count =  MAX_SIZE;
 	}
@@ -759,6 +760,10 @@ ssize_t proc_write(struct file *filp,const char *buf,size_t count,loff_t *offp)
     
     sscanf(msg, "%d", &id);
     switch(id) {
+		case TEST_HYCALL:
+			kvm_hypercall2(KVM_HC_WRITE_LONG, virt_to_phys(&pgp_hyp_init), true); 
+			printk("[PGP] test hypercall, pgp_hyp_init = %d\n", (int)pgp_hyp_init);
+			break;
         case SET_MEM_RO:
             pgp_set_memory_ro(PGP_ROBUF_VA, PGP_RO_PAGES);
             printk("[PGP] set PGP buffer ro\n");

@@ -2,7 +2,7 @@
 #include <linux/spinlock.h>
 #include <linux/types.h>
 #include <linux/mm.h>
-#include <linux/pt.h>
+//#include <linux/pt.h>
 
 unsigned long pgp_ro_buf_base = 0;
 EXPORT_SYMBOL(pgp_ro_buf_base);
@@ -41,7 +41,7 @@ void __init init_pgp_page_list(void)
 	unsigned long end_pfn = PFN_UP(pgp_ro_buf_end);
 	struct page *page;
 	int cnt = 0;
-	
+	memset(pgp_ro_buf_base_va, 0, PGP_ROBUF_SIZE);
 	for (; start_pfn < end_pfn; start_pfn++) {
 		if (pfn_valid(start_pfn)) {
 			cnt ++;
@@ -121,6 +121,7 @@ bool pgp_ro_free(void* addr)
         return false;
 	
 	spin_lock_irqsave(&ro_pgp_pages_lock, flags);
+	//pgp_memset(addr, 0, PAGE_SIZE);
 	list_add(&page->lru, &pgp_page_list);
 #ifdef PGP_DEBUG_ALLOCATION
 	pgcnt ++;
@@ -148,12 +149,12 @@ void pgp_memset(void *dst, char c, size_t len)
 #else
 		if(pgp_hyp_init == false)
 			memset(dst, c, len);
-		// else
-		// 	jailhouse_call_arg2_custom(JAILHOUSE_HC_MEMSET | len, (unsigned long)dst, c);
+		else
+			kvm_hypercall3(KVM_HC_MEMSET, (unsigned long)(virt_to_phys(dst)), c, len);
 #endif
     } else {
 		if(pgp_hyp_init && pgp_ro_buf_ready)
-			PGP_WARNING("[PGP] pgp_memset fail at 0x%016lx", (unsigned long)dst);
+			PGP_WARNING("[PGP] pgp_memset fail at 0x%016lx", (unsigned long)(virt_to_phys(dst)));
         memset(dst, c, len);
     }
 }
@@ -170,17 +171,17 @@ EXPORT_SYMBOL(pgp_memset);
 void pgp_memcpy(void *dst, void *src, size_t len)
 {
     if(is_pgp_ro_page((unsigned long)dst)){
-#ifdef __DEBUG_PAGE_TABLE_PROTECTION
-		memcpy(dst, src, len);
-#else
+// #ifdef __DEBUG_PAGE_TABLE_PROTECTION
+// 		memcpy(dst, src, len);
+// #else
 		if(pgp_hyp_init == false)
 			memcpy(dst, src, len);
-		// else
-		// 	jailhouse_call_arg2_custom(JAILHOUSE_HC_MEMCPY | len, (unsigned long)dst, (unsigned long)virt_to_phys(src));
-#endif
+		else
+			kvm_hypercall3(KVM_HC_MEMCPY, (unsigned long)(virt_to_phys(dst)), (unsigned long)(virt_to_phys(src)), len);
+// #endif
     } else {
 		if(pgp_hyp_init && pgp_ro_buf_ready)
-			PGP_WARNING("[PGP] pgp_memcpy fail from src 0x%016lx to dst 0x%016lx", (unsigned long)src, (unsigned long)dst);
+			PGP_WARNING("[PGP] pgp_memcpy fail from src 0x%016lx to dst 0x%016lx", (unsigned long)(virt_to_phys(src)), (unsigned long)(virt_to_phys(dst)));
         memcpy(dst, src, len);
     }
 }

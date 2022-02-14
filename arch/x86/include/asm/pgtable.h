@@ -1189,7 +1189,12 @@ static inline pte_t ptep_get_and_clear_full(struct mm_struct *mm,
 static inline void ptep_set_wrprotect(struct mm_struct *mm,
 				      unsigned long addr, pte_t *ptep)
 {
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_PTE
+	pte_t old_pte = *ptep;
+	set_pte_at(mm, addr, ptep, pte_wrprotect(old_pte));
+#else
 	clear_bit(_PAGE_BIT_RW, (unsigned long *)&ptep->pte);
+#endif
 }
 
 #define flush_tlb_fix_spurious_fault(vma, address) do { } while (0)
@@ -1250,6 +1255,27 @@ static inline int pud_write(pud_t pud)
 
 #ifndef pmdp_establish
 #define pmdp_establish pmdp_establish
+
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_PMD
+static inline pmd_t pmdp_establish(struct vm_area_struct *vma,
+		unsigned long address, pmd_t *pmdp, pmd_t pmd)
+{
+	if(is_pgp_ro_page((unsigned long)pmdp)){
+		pmd_t old = READ_ONCE(*pmdp);
+		PGP_WRITE_ONCE(pmdp, native_pmd_val(pmd));
+		return old;
+	} else {
+		PGP_WARNING_SET(pmdp);
+		if (IS_ENABLED(CONFIG_SMP)) {
+			return xchg(pmdp, pmd);
+		} else {
+			pmd_t old = *pmdp;
+			WRITE_ONCE(*pmdp, pmd);
+			return old;
+		}
+	}
+}
+#else
 static inline pmd_t pmdp_establish(struct vm_area_struct *vma,
 		unsigned long address, pmd_t *pmdp, pmd_t pmd)
 {
@@ -1261,6 +1287,7 @@ static inline pmd_t pmdp_establish(struct vm_area_struct *vma,
 		return old;
 	}
 }
+#endif
 #endif
 /*
  * Page table pages are page-aligned.  The lower half of the top
@@ -1340,13 +1367,22 @@ static inline p4d_t *user_to_kernel_p4dp(p4d_t *p4dp)
  */
 static inline void clone_pgd_range(pgd_t *dst, pgd_t *src, int count)
 {
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_PGD
+	pgp_memcpy(dst, src, count * sizeof(pgd_t));
+#else
 	memcpy(dst, src, count * sizeof(pgd_t));
+#endif
 #ifdef CONFIG_PAGE_TABLE_ISOLATION
 	if (!static_cpu_has(X86_FEATURE_PTI))
 		return;
 	/* Clone the user space pgd as well */
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_PGD
+	pgp_memcpy(kernel_to_user_pgdp(dst), kernel_to_user_pgdp(src),
+		count * sizeof(pgd_t));
+#else
 	memcpy(kernel_to_user_pgdp(dst), kernel_to_user_pgdp(src),
 	       count * sizeof(pgd_t));
+#endif
 #endif
 }
 

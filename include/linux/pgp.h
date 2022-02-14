@@ -4,8 +4,8 @@
 #include <linux/types.h>
 #include <asm/bug.h>
 #include <asm/io.h>
-//#include <linux/pt.h>
-
+#include <linux/pt.h>
+#include <linux/kvm_para.h>
 //#define PGP_DEBUG_ALLOCATION
 
 extern volatile bool pgp_hyp_init;
@@ -33,7 +33,7 @@ extern long free_cnt;
 #define PGP_WARNING_SET(x) PGP_WARNING("[PGP WARNING SET] %s: not in a pgp page: 0x%016lx\n", __FUNCTION__, (unsigned long)x)
 
 
-#define __DEBUG_PAGE_TABLE_PROTECTION
+//#define __DEBUG_PAGE_TABLE_PROTECTION
 #ifdef __DEBUG_PAGE_TABLE_PROTECTION
 #define PGP_WARNING(format...) WARN(true, format)
 #define PGP_WRITE_ONCE(addr, value) WRITE_ONCE(*(unsigned long *)addr, (unsigned long)value)
@@ -115,7 +115,10 @@ static inline bool is_pgp_ro_page(unsigned long addr)
  */
 static inline void pgp_write_long(unsigned long *addr, unsigned long val)
 {
-	WRITE_ONCE(*addr, val);
+	if(pgp_hyp_init == false)
+		WRITE_ONCE(*addr, val);
+	else
+		kvm_hypercall2(KVM_HC_WRITE_LONG, (unsigned long)(virt_to_phys(addr)), val);                                                                                                                                                                                                                                                
 }
 
 #endif // _PGP_H
