@@ -7546,18 +7546,84 @@ static void kvm_sched_yield(struct kvm *kvm, unsigned long dest_id)
 		kvm_vcpu_yield_to(target);
 }
 #ifdef CONFIG_PAGE_TABLE_PROTECTION_KVM
-static int kvm_help_write_long(void)
+static int kvm_help_write_long(struct kvm_vcpu *vcpu, gpa_t addr, u64 val)
 {
+	int ret;
+	int len;
+	//gpa_t gpa;
+	len = is_64_bit_mode(vcpu) ? 8 : 4;
+	//printk("[PGP]: addr = %016llx, val = %lld, len = %d", addr, val, len);
+	//gpa = virt_to_phys(addr);
+	ret = kvm_vcpu_write_guest(vcpu, addr, &val, len);
+	if (ret < 0) {
+		printk("[PGP]: PGP write error\n");
+		//kvm_inject_page_fault(vcpu, &e);
+		return 1;
+	}
 	return 0;
 }
 
-static int kvm_help_memcpy(void)
+static int kvm_help_memcpy(struct kvm_vcpu *vcpu, gpa_t dst, gpa_t src, size_t len)
 {
+	//struct x86_exception e;
+	u64 val;
+	int ret=0;
+	while(len >= sizeof(val)) {
+		ret = kvm_vcpu_read_guest(vcpu, src, &val, sizeof(val));
+		if (ret < 0) {
+			//kvm_inject_page_fault(vcpu, &e);
+			return 1;
+		}
+		ret = kvm_vcpu_write_guest(vcpu, dst, &val, sizeof(val));
+		if (ret < 0) {
+			//kvm_inject_page_fault(vcpu, &e);
+			return 1;
+		}
+		len -= sizeof(val);
+		src += sizeof(val);
+		dst += sizeof(val);
+	}
+	if(len)
+	{
+		printk("[PGP WARNING]: not aligned for memcpy, dst: %016llx, src : %016llx, %ld\n",dst,src,len);
+		// if (kvm_read_guest_virt(vcpu, src, &val, len, &e)) {
+		// 	kvm_inject_page_fault(vcpu, &e);
+		// 	return 1;
+		// }
+		// if (kvm_write_guest_virt_system(vcpu, dst, &val, len, &e)) {
+		// 	kvm_inject_page_fault(vcpu, &e);
+		// 	return 1;
+		// }
+		return 1;
+	}
 	return 0;
-}
 
-static int kvm_help_memset(void)
+}
+static int kvm_help_memset(struct kvm_vcpu *vcpu, gpa_t addr, u64 val, size_t len)
 {
+	//struct x86_exception e;
+	int ret = 0;
+	// gfn_t gfn = addr >> PAGE_SHIFT;
+	// int offset = offset_in_page(addr);
+	void* tmp_src = kmalloc(len, GFP_KERNEL);
+	memset(tmp_src, val, len);
+	//printk("[PGP]:kvm_help_memset addr = %016llx, val = %lld, len = %ld", addr, val, len);
+	ret = kvm_vcpu_write_guest(vcpu, addr, tmp_src, len);
+	if (ret < 0) {
+		//kvm_inject_page_fault(vcpu, &e);
+		printk("[PGP]: PGP kvm_help_memset error\n");
+		return 1;
+	}
+	// while(len>0) {
+	// 	ret = kvm_help_write_long(vcpu,addr,val);
+	// 	if (ret < 0) {
+	// 		//kvm_inject_page_fault(vcpu, &e);
+	// 		printk("[PGP]: PGP kvm_help_memset error\n");
+	// 		return 1;
+	// 	}
+	// 	len -=8;
+	// 	addr +=8;
+	// }
 	return 0;
 }
 #endif
@@ -7615,18 +7681,19 @@ int kvm_emulate_hypercall(struct kvm_vcpu *vcpu)
 		break;
 #ifdef CONFIG_PAGE_TABLE_PROTECTION_KVM
 	case KVM_HC_WRITE_LONG:
-		kvm_help_write_long();
-		ret = 0;
+		//printk("[PGP]: hypercall triger, a0=%016lx, %ld\n",a0,a1);
+		ret = kvm_help_write_long(vcpu, a0, a1);
+		//printk("[PGP]: write long finished ret=%ld",ret);
 		break;
 	case KVM_HC_MEMCPY:
-		kvm_help_memcpy();
-		ret = 0;
+		ret = kvm_help_memcpy(vcpu, a0, a1, a2);
 		break;
 	case KVM_HC_MEMSET:
-		kvm_help_memset();
-		ret = 0;
+		//printk("[PGP]: hypercall triger memset, a0=%016lx, a1=%ld, a2=%ld\n",a0,a1,a2);
+		ret = kvm_help_memset(vcpu, a0, a1, a2);
+		//printk("[PGP]: memset finished ret=%ld",ret);
 		break;
-#endif
+#endif		
 	default:
 		ret = -KVM_ENOSYS;
 		break;
