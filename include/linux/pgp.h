@@ -14,6 +14,7 @@ extern unsigned long pgp_ro_buf_end;
 extern unsigned long pgp_ro_buf_base_va;
 extern unsigned long pgp_ro_buf_end_va;
 extern bool pgp_ro_buf_ready;
+extern bool pgp_vmfunc_init;
 
 #ifdef PGP_DEBUG_ALLOCATION
 extern int pgcnt;
@@ -42,6 +43,12 @@ extern long free_cnt;
 #define PGP_WRITE_ONCE(addr, value) pgp_write_long((unsigned long *)addr, (unsigned long)value)
 #endif
 
+#define PARAVIRT_VMFUNC
+#ifdef PARAVIRT_VMFUNC
+#define ASM_VMX_VMFUNC		  ".byte 0x0f, 0x01, 0xd4"
+extern unsigned long pgp_rw_eptp_idx;
+extern unsigned long pgp_ro_eptp_idx;
+#endif
 
 /**
  * Initialize a page list which links all pages in pgp ro buffer.
@@ -113,6 +120,30 @@ static inline bool is_pgp_ro_page(unsigned long addr)
  * 
  * For a addr from pgp ro region use the jailhouse hypercall use WRITE_ONCE otherwise.
  */
+
+#ifdef PARAVIRT_VMFUNC
+static inline u8 __vmx_vmfunc(u32 eptp, u32 func)
+{
+	u8 error;
+	__asm __volatile(ASM_VMX_VMFUNC "; setna %0"
+			 : "=q" (error) : "c" (eptp), "a" (func)
+			 : "cc");
+	return error;
+}
+
+static inline void pgp_write_long(unsigned long *addr, unsigned long val)
+{
+	if(pgp_vmfunc_init == false)
+		WRITE_ONCE(*addr, val);
+	else
+	{
+		__vmx_vmfunc(pgp_rw_eptp_idx,0);
+		WRITE_ONCE(*addr, val);  
+		__vmx_vmfunc(pgp_ro_eptp_idx,0);  
+	}                                                                                                                                                                                                                                           
+}
+
+#else
 static inline void pgp_write_long(unsigned long *addr, unsigned long val)
 {
 	if(pgp_hyp_init == false)
@@ -120,5 +151,7 @@ static inline void pgp_write_long(unsigned long *addr, unsigned long val)
 	else
 		kvm_hypercall2(KVM_HC_WRITE_LONG, (unsigned long)(virt_to_phys(addr)), val);                                                                                                                                                                                                                                                
 }
+
+#endif
 
 #endif // _PGP_H

@@ -556,7 +556,22 @@ int pudp_set_access_flags(struct vm_area_struct *vma, unsigned long address,
 	return changed;
 }
 #endif
-
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_PTE
+int ptep_test_and_clear_young(struct vm_area_struct *vma,
+			      unsigned long addr, pte_t *ptep)
+{
+	int ret = 0;
+	pte_t old_pte = *ptep;
+	pte_t pte;
+	if (pte_young(*ptep))
+	{
+		pte = pte_clear_flags(old_pte, _PAGE_BIT_ACCESSED);
+		native_set_pte(ptep, pte);
+		ret = 1;
+	}
+	return ret;
+}
+#else
 int ptep_test_and_clear_young(struct vm_area_struct *vma,
 			      unsigned long addr, pte_t *ptep)
 {
@@ -568,8 +583,26 @@ int ptep_test_and_clear_young(struct vm_area_struct *vma,
 
 	return ret;
 }
+#endif
 
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
+
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_PMD
+int pmdp_test_and_clear_young(struct vm_area_struct *vma,
+			      unsigned long addr, pmd_t *pmdp)
+{
+	int ret = 0;
+	pmd_t old_pmd = *pmdp;
+	pmd_t pmd;
+	if (pmd_young(*pmdp))
+	{
+		pmd = pmd_clear_flags(old_pmd, _PAGE_BIT_ACCESSED);
+		native_set_pmd(pmdp, pmd);
+		ret = 1;
+	}
+	return ret;
+}
+#else
 int pmdp_test_and_clear_young(struct vm_area_struct *vma,
 			      unsigned long addr, pmd_t *pmdp)
 {
@@ -581,6 +614,24 @@ int pmdp_test_and_clear_young(struct vm_area_struct *vma,
 
 	return ret;
 }
+#endif
+
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_PUD
+int pudp_test_and_clear_young(struct vm_area_struct *vma,
+			      unsigned long addr, pud_t *pudp)
+{
+	int ret = 0;
+	pud_t old_pud = *pudp;
+	pud_t pud;
+	if (pud_young(*pudp))
+	{
+		pud = pud_clear_flags(old_pud, _PAGE_BIT_ACCESSED);
+		native_set_pud(pudp, pud);
+		ret = 1;
+	}
+	return ret;
+}
+#else
 int pudp_test_and_clear_young(struct vm_area_struct *vma,
 			      unsigned long addr, pud_t *pudp)
 {
@@ -592,6 +643,8 @@ int pudp_test_and_clear_young(struct vm_area_struct *vma,
 
 	return ret;
 }
+#endif
+
 #endif
 
 int ptep_clear_flush_young(struct vm_area_struct *vma,

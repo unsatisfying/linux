@@ -739,16 +739,19 @@ int pgp_set_memory_ro(unsigned long addr, int numpages)
 {
 	pgp_hyp_init = true;
 	set_memory_ro(PGP_ROBUF_VA, PGP_RO_PAGES);
+	return 0;
 }
 
 int pgp_set_memory_rw(unsigned long addr, int numpages)
 {
 	set_memory_rw(PGP_ROBUF_VA, PGP_RO_PAGES);
 	pgp_hyp_init = false;
+	return 0;
 }
 ssize_t proc_write(struct file *filp,const char *buf,size_t count,loff_t *offp)
 {
     int remain, id;
+	u64 begin, end;
 	if (count > MAX_SIZE){
 		count =  MAX_SIZE;
 	}
@@ -760,9 +763,19 @@ ssize_t proc_write(struct file *filp,const char *buf,size_t count,loff_t *offp)
     
     sscanf(msg, "%d", &id);
     switch(id) {
+		case TEST_VMFUNC:
+			begin = rdtsc();
+			__vmx_vmfunc(pgp_rw_eptp_idx,0);
+			pgp_vmfunc_init = true;
+			end = rdtsc();
+			printk("[PGP] VMFUNC time_cycle begin= %lld, end= %lld, overhead= %lld\n", begin, end, end-begin);
+			break;
 		case TEST_HYCALL:
-			kvm_hypercall2(KVM_HC_WRITE_LONG, virt_to_phys(&pgp_hyp_init), true); 
-			printk("[PGP] test hypercall, pgp_hyp_init = %d\n", (int)pgp_hyp_init);
+			begin = rdtsc();
+			kvm_hypercall2(KVM_HC_WRITE_LONG, virt_to_phys(&pgp_vmfunc_init), true);
+			end = rdtsc(); 
+			printk("[PGP] hypercall time_cycle begin= %lld, end= %lld, overhead= %lld\n", begin, end, end-begin);
+			printk("[PGP] test hypercall, pgp_vmfunc_init = %d\n", (int)pgp_vmfunc_init);
 			break;
         case SET_MEM_RO:
             pgp_set_memory_ro(PGP_ROBUF_VA, PGP_RO_PAGES);

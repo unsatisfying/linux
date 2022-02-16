@@ -1244,7 +1244,12 @@ static inline pud_t pudp_huge_get_and_clear(struct mm_struct *mm,
 static inline void pmdp_set_wrprotect(struct mm_struct *mm,
 				      unsigned long addr, pmd_t *pmdp)
 {
+#ifdef CONFIG_PAGE_TABLE_PROTECTION_PMD
+	pmd_t old_pmd = *pmdp;
+	set_pmd_at(mm, addr, pmdp, pmd_wrprotect(old_pmd));
+#else
 	clear_bit(_PAGE_BIT_RW, (unsigned long *)pmdp);
+#endif
 }
 
 #define pud_write pud_write

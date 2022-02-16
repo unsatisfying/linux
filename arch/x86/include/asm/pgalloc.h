@@ -253,8 +253,7 @@ static inline p4d_t *p4d_alloc_one(struct mm_struct *mm, unsigned long addr)
 
 	p4d = (p4d_t *)pgp_ro_zalloc();
 	if(!p4d) {
-		if(pgp_ro_buf_ready)
-			PGP_WARNING_ALLOC();
+		PGP_WARNING_ALLOC();
 		if (mm == &init_mm)
 			gfp &= ~__GFP_ACCOUNT;
 		return (p4d_t *)get_zeroed_page(gfp);

@@ -13,6 +13,14 @@ EXPORT_SYMBOL(pgp_ro_buf_base_va);
 unsigned long pgp_ro_buf_end_va = 0;
 EXPORT_SYMBOL(pgp_ro_buf_end_va);
 
+#ifdef PARAVIRT_VMFUNC
+unsigned long pgp_rw_eptp_idx = 0;
+EXPORT_SYMBOL(pgp_rw_eptp_idx);
+unsigned long pgp_ro_eptp_idx = 0;
+EXPORT_SYMBOL(pgp_ro_eptp_idx);
+bool pgp_vmfunc_init = false;
+EXPORT_SYMBOL(pgp_vmfunc_init);
+#endif
 
 bool pgp_ro_buf_ready = false;
 EXPORT_SYMBOL(pgp_ro_buf_ready);
@@ -141,23 +149,39 @@ EXPORT_SYMBOL(pgp_ro_free);
  * 
  * For a ro page use the jailhouse hypercall while for a normal page use the memset.
  */
+#ifdef PARAVIRT_VMFUNC
 void pgp_memset(void *dst, char c, size_t len)
 {
 	if(is_pgp_ro_page((unsigned long)dst)){
-#ifdef __DEBUG_PAGE_TABLE_PROTECTION
-		memset(dst, c, len);
-#else
+		if(pgp_vmfunc_init == false)
+			memset(dst, c, len);
+		else
+		{
+			__vmx_vmfunc(pgp_rw_eptp_idx,0);
+			memset(dst, c, len);
+			__vmx_vmfunc(pgp_ro_eptp_idx,0);  
+		}
+    } else {
+		if(pgp_vmfunc_init && pgp_ro_buf_ready)
+			PGP_WARNING("[PGP] pgp_memset fail at 0x%016lx", (unsigned long)(virt_to_phys(dst)));
+        memset(dst, c, len);
+    }
+}
+#else 
+void pgp_memset(void *dst, char c, size_t len)
+{
+	if(is_pgp_ro_page((unsigned long)dst)){
 		if(pgp_hyp_init == false)
 			memset(dst, c, len);
 		else
 			kvm_hypercall3(KVM_HC_MEMSET, (unsigned long)(virt_to_phys(dst)), c, len);
-#endif
     } else {
 		if(pgp_hyp_init && pgp_ro_buf_ready)
 			PGP_WARNING("[PGP] pgp_memset fail at 0x%016lx", (unsigned long)(virt_to_phys(dst)));
         memset(dst, c, len);
     }
 }
+#endif
 EXPORT_SYMBOL(pgp_memset);
 
 /* 
@@ -168,6 +192,25 @@ EXPORT_SYMBOL(pgp_memset);
  * 
  * For a ro page use the jailhouse hypercall while for a normal page use the memcpy.
  */
+#ifdef PARAVIRT_VMFUNC
+void pgp_memcpy(void *dst, void *src, size_t len)
+{
+    if(is_pgp_ro_page((unsigned long)dst)){
+		if(pgp_vmfunc_init == false)
+			memcpy(dst, src, len);
+		else
+		{
+			__vmx_vmfunc(pgp_rw_eptp_idx,0);
+			memcpy(dst, src, len);
+			__vmx_vmfunc(pgp_ro_eptp_idx,0);  
+		}
+    } else {
+		if(pgp_vmfunc_init && pgp_ro_buf_ready)
+			PGP_WARNING("[PGP] pgp_memcpy fail from src 0x%016lx to dst 0x%016lx", (unsigned long)(virt_to_phys(src)), (unsigned long)(virt_to_phys(dst)));
+        memcpy(dst, src, len);
+    }
+}
+#else
 void pgp_memcpy(void *dst, void *src, size_t len)
 {
     if(is_pgp_ro_page((unsigned long)dst)){
@@ -185,4 +228,5 @@ void pgp_memcpy(void *dst, void *src, size_t len)
         memcpy(dst, src, len);
     }
 }
+#endif
 EXPORT_SYMBOL(pgp_memcpy);

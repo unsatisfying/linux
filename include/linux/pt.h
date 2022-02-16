@@ -73,6 +73,7 @@ struct px_memory_region {
 #define KVM_HC_MEMSET           14
 #endif
 
+#define TEST_VMFUNC 3
 #define TEST_HYCALL 4
 #define SET_MEM_RO 5
 #define SET_MEM_RW 6
